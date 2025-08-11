@@ -24,11 +24,26 @@
     .up{color:var(--green)} .down{color:var(--red)}
     .tag{display:inline-block;background:rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
     .btn{background:var(--accent);color:white;border:none;border-radius:12px;padding:12px 16px;font-weight:700}
-    .grid{display:grid;grid-template-columns:1.2fr .8fr .9fr .9fr 1.1fr .9fr;gap:8px;align-items:center}
+    /* Увеличили ширину колонки Кол-во */
+    .grid{display:grid;grid-template-columns:1.2fr 1.1fr .9fr .9fr 1.1fr .9fr;gap:8px;align-items:center}
     .grid.header{color:var(--muted);font-size:12px;margin-top:6px}
     .row{padding:10px;border-radius:12px}
     .row:nth-child(odd){background:rgba(255,255,255,.035)}
-    input.qty{width:100%;background:transparent;border:1px solid rgba(255,255,255,.25);color:var(--text);padding:8px;border-radius:10px;text-align:right}
+    /* Улучшили поле количества */
+    input.qty{
+      width:100%;
+      background:transparent;
+      border:1px solid rgba(255,255,255,.25);
+      color:var(--text);
+      padding:10px 10px;
+      border-radius:10px;
+      text-align:center;
+      font-size:16px;
+      font-variant-numeric: tabular-nums;
+      -moz-appearance:textfield;
+    }
+    input.qty::-webkit-outer-spin-button,
+    input.qty::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
     .footer{color:var(--muted);font-size:12px;margin-top:8px}
     .mono{font-variant-numeric: tabular-nums}
   </style>
