@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Портфель — мини‑трекер (актуальные тикеры)</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#121821; --text:#e6edf3; --muted:#9fb0c0; --green:#27ae60; --red:#e74c3c; --accent:#2d7ff9; }
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial;}
+    .container{max-width:920px;margin:16px auto;padding:0 12px;}
+    .header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .card{background:var(--card);border-radius:16px;padding:16px 18px;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+    .title{font-size:22px;font-weight:800;margin:0 0 6px}
+    .sub{color:var(--muted);font-size:13px}
+    .totals{display:flex;gap:14px;flex-wrap:wrap;align-items:baseline}
+    .totals .big{font-size:30px;font-weight:900}
+    .arrow{font-weight:900}
+    .up{color:var(--green)} .down{color:var(--red)}
+    .tag{display:inline-block;background:rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+    .btn{background:var(--accent);color:white;border:none;border-radius:12px;padding:12px 16px;font-weight:700}
+    .grid{display:grid;grid-template-columns:1.2fr .8fr .9fr .9fr 1.1fr .9fr;gap:8px;align-items:center}
+    .grid.header{color:var(--muted);font-size:12px;margin-top:6px}
+    .row{padding:10px;border-radius:12px}
+    .row:nth-child(odd){background:rgba(255,255,255,.035)}
+    input.qty{width:100%;background:transparent;border:1px solid rgba(255,255,255,.25);color:var(--text);padding:8px;border-radius:10px;text-align:right}
+    .footer{color:var(--muted);font-size:12px;margin-top:8px}
+    .mono{font-variant-numeric: tabular-nums}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="card" style="flex:1">
+        <div class="title">Портфель</div>
+        <div class="totals">
+          <div>Итого: <span id="totalRub" class="big mono">—</span> ₽</div>
+          <div class="tag">USD: <span id="usdRate" class="mono">—</span></div>
+          <div class="tag">Эквив. $: <span id="totalUsd" class="mono">—</span></div>
+          <div class="tag"><span id="portArrow" class="arrow">—</span> <span id="portChange" class="mono">—</span></div>
+        </div>
+        <div class="footer">Цены — MOEX ISS (текущая и цена открытия), курс — cbr-xml-daily.ru (CORS-friendly). Количества сохраняются на устройстве.</div>
+      </div>
+      <button class="btn" id="refresh">Обновить</button>
+    </div>
+
+    <div class="card">
+      <div class="grid header">
+        <div>Бумага</div><div>Кол-во</div><div>Откр. ₽</div><div>Текущ. ₽</div><div>Стоимость ₽</div><div>День</div>
+      </div>
+      <div id="rows"></div>
+    </div>
+  </div>
+
+<script>
+const instruments = [
+  {secid:'LKOH', name:'ЛУКОЙЛ', qty:61},
+  {secid:'MOEX', name:'Московская биржа', qty:500},
+  {secid:'SBER', name:'Сбербанк (обычка)', qty:40},
+  {secid:'SBERP', name:'Сбербанк (привил.)', qty:3264},
+  {secid:'YDEX', name:'Яндекс', qty:77},
+  {secid:'X5',   name:'X5 Group', qty:43},
+];
+const boards = ['TQBR','TQTF','TQTD'];
+const rowsEl = document.getElementById('rows');
+const fmt = n => (n===null || n===undefined || isNaN(n)) ? '—' : n.toLocaleString('ru-RU',{maximumFractionDigits:2});
+const storageKey = 'portfolio_qty_v4';
+
+function loadSavedQty(){
+  try {
+    const s = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    instruments.forEach(x => { if (s[x.secid]!=null) x.qty = Number(s[x.secid]); });
+  } catch(e){}
+}
+function saveQty(){
+  const m = {}; instruments.forEach(x => m[x.secid]=x.qty);
+  localStorage.setItem(storageKey, JSON.stringify(m));
+}
+
+async function getQuote(secid){
+  for (const board of boards){
+    const url = `https://iss.moex.com/iss/engines/stock/markets/shares/boards/${board}/securities/${encodeURIComponent(secid)}.json?iss.only=marketdata&marketdata.columns=SECID,OPEN,LAST,LCURRENTPRICE`;
+    try {
+      const r = await fetch(url, {cache:'no-store'});
+      if (!r.ok) continue;
+      const j = await r.json();
+      const d = j.marketdata && j.marketdata.data && j.marketdata.data[0];
+      if (d){
+        const open = d[1];
+        const last = d[2] ?? d[3];
+        if (last!=null || open!=null) return {open: Number(open ?? last ?? 0), last: Number(last ?? open ?? 0)};
+      }
+    } catch(e){}
+  }
+  return {open:null, last:null};
+}
+
+async function getUsd(){
+  const r = await fetch('https://www.cbr-xml-daily.ru/daily_json.js', {cache:'no-store'});
+  const j = await r.json();
+  return j && j.Valute && j.Valute.USD && j.Valute.USD.Value ? Number(j.Valute.USD.Value) : null;
+}
+
+function render(state, usd){
+  rowsEl.innerHTML = '';
+  let total = 0, totalAtOpen = 0;
+  state.forEach(x => {
+    const value = (x.last ?? 0) * x.qty;
+    const valueOpen = (x.open ?? x.last ?? 0) * x.qty;
+    total += value; totalAtOpen += valueOpen;
+  });
+  const dayDiff = total - totalAtOpen;
+  const dayPct = totalAtOpen>0 ? dayDiff/totalAtOpen*100 : 0;
+
+  document.getElementById('totalRub').textContent = fmt(total);
+  document.getElementById('usdRate').textContent = fmt(usd);
+  document.getElementById('totalUsd').textContent = (usd && total) ? fmt(total/usd) : '—';
+  const arrow = document.getElementById('portArrow');
+  const change = document.getElementById('portChange');
+  if (dayDiff>0){ arrow.textContent='▲'; arrow.className='arrow up'; change.textContent = `+${fmt(dayDiff)} ₽ (+${fmt(dayPct)}%)`; }
+  else if (dayDiff<0){ arrow.textContent='▼'; arrow.className='arrow down'; change.textContent = `${fmt(dayDiff)} ₽ (${fmt(dayPct)}%)`; }
+  else { arrow.textContent='—'; arrow.className='arrow'; change.textContent='0 ₽ (0%)'; }
+
+  state.forEach(x => {
+    const value = (x.last ?? 0) * x.qty;
+    const valueOpen = (x.open ?? x.last ?? 0) * x.qty;
+    const diff = value - valueOpen;
+    const pct = valueOpen>0 ? (diff/valueOpen*100) : 0;
+    const row = document.createElement('div');
+    row.className = 'grid row';
+    const arrowCell = diff>0 ? `<span class="up">▲ ${fmt(pct)}%</span>` : diff<0 ? `<span class="down">▼ ${fmt(pct)}%</span>` : '—';
+    row.innerHTML = `
+      <div>${x.name} <span class="tag">${x.secid}</span></div>
+      <div><input class="qty" type="number" min="0" step="1" value="${x.qty}" data-secid="${x.secid}"></div>
+      <div class="mono">${fmt(x.open)}</div>
+      <div class="mono">${fmt(x.last)}</div>
+      <div class="mono">${fmt(value)}</div>
+      <div class="mono">${arrowCell}</div>
+    `;
+    rowsEl.appendChild(row);
+  });
+
+  document.querySelectorAll('input.qty').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const secid = inp.dataset.secid;
+      const item = instruments.find(i => i.secid===secid);
+      item.qty = Number(inp.value||0);
+      saveQty();
+      render(state.map(s => s.secid===secid? {...s, qty:item.qty }: s), usd);
+    });
+  });
+}
+
+async function refresh(){
+  loadSavedQty();
+  const quotes = await Promise.all(instruments.map(x => getQuote(x.secid)));
+  const state = instruments.map((x,i)=>({...x, ...quotes[i]}));
+  const usd = await getUsd();
+  render(state, usd);
+}
+
+document.getElementById('refresh').addEventListener('click', refresh);
+refresh();
+</script>
+</body>
+</html>
