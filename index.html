@@ -24,12 +24,12 @@
     .up{color:var(--green)} .down{color:var(--red)}
     .tag{display:inline-block;background:rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
     .btn{background:var(--accent);color:white;border:none;border-radius:12px;padding:12px 16px;font-weight:700}
-    /* Увеличили ширину колонки Кол-во */
-    .grid{display:grid;grid-template-columns:1.2fr 1.1fr .9fr .9fr 1.1fr .9fr;gap:8px;align-items:center}
+    /* Сетка без колонки "Откр. ₽" — оставили 5 колонок, кол-во шире */
+    .grid{display:grid;grid-template-columns:1.3fr 1.1fr .9fr 1.1fr .9fr;gap:8px;align-items:center}
     .grid.header{color:var(--muted);font-size:12px;margin-top:6px}
     .row{padding:10px;border-radius:12px}
     .row:nth-child(odd){background:rgba(255,255,255,.035)}
-    /* Улучшили поле количества */
+    /* Поле количества — удобнее для ввода */
     input.qty{
       width:100%;
       background:transparent;
@@ -66,7 +66,7 @@
 
     <div class="card">
       <div class="grid header">
-        <div>Бумага</div><div>Кол-во</div><div>Откр. ₽</div><div>Текущ. ₽</div><div>Стоимость ₽</div><div>День</div>
+        <div>Бумага</div><div>Кол-во</div><div>Текущ. ₽</div><div>Стоимость ₽</div><div>День</div>
       </div>
       <div id="rows"></div>
     </div>
@@ -152,7 +152,6 @@ function render(state, usd){
     row.innerHTML = `
       <div>${x.name} <span class="tag">${x.secid}</span></div>
       <div><input class="qty" type="number" min="0" step="1" value="${x.qty}" data-secid="${x.secid}"></div>
-      <div class="mono">${fmt(x.open)}</div>
       <div class="mono">${fmt(x.last)}</div>
       <div class="mono">${fmt(value)}</div>
       <div class="mono">${arrowCell}</div>
